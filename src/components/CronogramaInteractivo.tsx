@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { usePlanificacion } from '../context/PlanificacionContext';
 
@@ -15,83 +15,102 @@ const CronogramaInteractivo: React.FC = () => {
     );
   }
 
-  const mesesUnicos = [...new Set(diasCalendario.map(dia => 
-    format(dia.fecha, 'yyyy-MM')
-  ))];
-
   const getDiaClass = (dia: any) => {
-    let baseClass = "h-10 border border-gray-200 cursor-pointer transition-colors text-xs flex items-center justify-center";
+    let baseClass = "h-12 border-r border-gray-300 cursor-pointer transition-colors text-xs flex items-center justify-center relative";
     
     if (dia.esFinde) {
-      baseClass += " bg-gray-100 text-gray-400 cursor-not-allowed";
+      baseClass += " bg-gray-200 text-gray-500 cursor-not-allowed";
     } else if (dia.esNoLectivo) {
-      baseClass += " bg-red-100 text-red-600 hover:bg-red-200";
+      baseClass += " bg-red-50 hover:bg-red-100";
     } else if (dia.esLectivo) {
-      baseClass += " bg-green-100 text-green-600 hover:bg-green-200";
+      baseClass += " bg-white hover:bg-gray-50";
     } else {
-      baseClass += " bg-yellow-100 text-yellow-600 hover:bg-yellow-200";
+      baseClass += " bg-yellow-50 hover:bg-yellow-100";
     }
     
     return baseClass;
   };
 
+  const isUnidadActivaEnDia = (unidad: any, dia: any) => {
+    return isWithinInterval(dia.fecha, { start: unidad.fechaInicio, end: unidad.fechaFin }) && dia.esLectivo && !dia.esFinde;
+  };
+
+  const mesesHeaders = React.useMemo(() => {
+    const meses: { [key: string]: number } = {};
+    diasCalendario.forEach(dia => {
+      const mesKey = format(dia.fecha, 'yyyy-MM');
+      meses[mesKey] = (meses[mesKey] || 0) + 1;
+    });
+    return meses;
+  }, [diasCalendario]);
+
   return (
     <div className="w-full h-screen flex flex-col bg-white">
-      {/* Header */}
-      <div className="bg-gray-50 p-4 border-b">
-        <h2 className="text-2xl font-bold text-gray-800">Cronograma Interactivo</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Haz clic en los días para cambiar entre lectivo/no lectivo
+      {/* Header Principal */}
+      <div className="bg-blue-600 text-white p-4 text-center">
+        <h1 className="text-2xl font-bold">CRONOGRAMA DE GANTT</h1>
+        <p className="text-blue-100 mt-1">
+          Calendario de Días Lectivos - Haz clic en los días para cambiar su estado (no se pueden modificar sábados y domingos)
         </p>
       </div>
 
-      {/* Cronograma Container */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Fixed Column - Unidades Didácticas */}
-        <div className="w-64 bg-gray-50 border-r flex-shrink-0">
-          <div className="h-20 border-b bg-gray-100 flex items-center px-4">
-            <h3 className="font-semibold text-gray-700">Unidades Didácticas</h3>
+      {/* Container Principal */}
+      <div className="flex-1 flex overflow-hidden border-2 border-blue-400">
+        {/* Columna Fija - Actividades */}
+        <div className="w-80 bg-teal-400 border-r-2 border-blue-400 flex-shrink-0">
+          <div className="h-20 bg-teal-500 border-b-2 border-blue-400 flex items-center justify-center">
+            <h3 className="font-bold text-white text-lg">ACTIVIDADES</h3>
           </div>
-          <div className="overflow-y-auto" style={{ height: 'calc(100% - 5rem)' }}>
+          <div className="h-16 bg-teal-400 border-b-2 border-blue-400 flex items-center justify-center">
+            <h4 className="font-semibold text-white">TIEMPO DE DURACIÓN</h4>
+          </div>
+          <div className="overflow-y-auto" style={{ height: 'calc(100% - 9rem)' }}>
             {planificacion.unidadesDidacticas.map((unidad, index) => (
               <div 
                 key={unidad.id}
-                className="h-12 flex items-center px-4 border-b border-gray-200"
-                style={{ backgroundColor: `${unidad.color}20` }}
+                className="h-16 flex items-center px-4 border-b border-teal-500 bg-teal-400"
               >
-                <div className="w-4 h-4 rounded mr-3" style={{ backgroundColor: unidad.color }}></div>
-                <span className="text-sm font-medium text-gray-700 truncate">
+                <div className="text-white text-sm font-medium leading-tight">
                   {unidad.nombre}
-                </span>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Scrollable Calendar Area */}
-        <div className="flex-1 overflow-x-auto">
+        {/* Área Scrolleable - Cronograma */}
+        <div className="flex-1 overflow-x-auto bg-white">
           <div className="min-w-max">
-            {/* Header con días */}
-            <div className="h-20 bg-gray-100 border-b flex">
-              {diasCalendario.map((dia, index) => (
-                <div key={index} className="w-12 border-r border-gray-200 flex flex-col">
-                  <div className="h-6 text-xs text-center text-gray-500 pt-1">
-                    {format(dia.fecha, 'EEE', { locale: es })}
-                  </div>
-                  <div className="h-6 text-xs text-center font-medium text-gray-700">
-                    {format(dia.fecha, 'd')}
-                  </div>
-                  <div className="h-8 text-xs text-center text-gray-400">
-                    {format(dia.fecha, 'MMM', { locale: es })}
-                  </div>
+            {/* Header de Meses */}
+            <div className="h-20 bg-teal-500 border-b-2 border-blue-400 flex">
+              {Object.entries(mesesHeaders).map(([mesKey, dias]) => (
+                <div 
+                  key={mesKey}
+                  className="border-r-2 border-blue-400 flex items-center justify-center text-white font-bold"
+                  style={{ width: `${dias * 48}px` }}
+                >
+                  {format(new Date(mesKey + '-01'), 'MMMM', { locale: es }).toUpperCase()}
                 </div>
               ))}
             </div>
 
-            {/* Rows de Unidades Didácticas */}
+            {/* Header de Días */}
+            <div className="h-16 bg-teal-400 border-b-2 border-blue-400 flex">
+              {diasCalendario.map((dia, index) => (
+                <div 
+                  key={index} 
+                  className="w-12 border-r border-teal-500 flex flex-col items-center justify-center text-white text-xs font-medium"
+                >
+                  <div>{format(dia.fecha, 'd')}</div>
+                  <div>{format(dia.fecha, 'EEE', { locale: es }).charAt(0).toUpperCase()}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filas de Unidades Didácticas */}
             <div>
               {planificacion.unidadesDidacticas.map((unidad, unidadIndex) => (
-                <div key={unidad.id} className="h-12 flex border-b border-gray-200">
+                <div key={unidad.id} className="h-16 flex border-b border-gray-300">
                   {diasCalendario.map((dia, diaIndex) => (
                     <div
                       key={diaIndex}
@@ -99,12 +118,20 @@ const CronogramaInteractivo: React.FC = () => {
                       style={{ width: '3rem' }}
                       onClick={() => !dia.esFinde ? toggleDiaLectivo(dia.fecha) : undefined}
                     >
-                      {dia.esLectivo && !dia.esFinde && (
+                      {/* Barra de la unidad didáctica */}
+                      {isUnidadActivaEnDia(unidad, dia) && (
                         <div 
-                          className="w-8 h-8 rounded opacity-60"
+                          className="absolute inset-1 rounded opacity-80"
                           style={{ backgroundColor: unidad.color }}
                         ></div>
                       )}
+                      
+                      {/* Indicador de estado del día */}
+                      <div className="relative z-10 text-xs">
+                        {dia.esNoLectivo && !dia.esFinde && (
+                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -115,20 +142,31 @@ const CronogramaInteractivo: React.FC = () => {
       </div>
 
       {/* Leyenda */}
-      <div className="bg-gray-50 p-4 border-t">
-        <div className="flex items-center gap-6 text-sm">
+      <div className="bg-gray-50 p-4 border-t-2 border-blue-400">
+        <div className="flex items-center gap-6 text-sm flex-wrap">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-100 border border-green-200 rounded"></div>
-            <span>Día lectivo</span>
+            <div className="w-4 h-4 bg-white border border-gray-300 rounded"></div>
+            <span>Día lectivo disponible</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
+            <div className="w-4 h-4 bg-red-50 border border-red-200 rounded flex items-center justify-center">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            </div>
             <span>Día no lectivo</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded"></div>
-            <span>Fin de semana</span>
+            <div className="w-4 h-4 bg-gray-200 border border-gray-300 rounded"></div>
+            <span>Fin de semana (no modificable)</span>
           </div>
+          {planificacion.unidadesDidacticas.map((unidad) => (
+            <div key={unidad.id} className="flex items-center gap-2">
+              <div 
+                className="w-4 h-4 rounded opacity-80" 
+                style={{ backgroundColor: unidad.color }}
+              ></div>
+              <span>{unidad.nombre}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
