@@ -6,13 +6,5 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 8080
-  },
-  css: {
-    postcss: {
-      plugins: [
-        require('tailwindcss'),
-        require('autoprefixer'),
-      ],
-    },
-  },
+  }
 })
